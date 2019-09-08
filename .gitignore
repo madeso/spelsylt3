@@ -1,5 +1,9 @@
+*.un~
+
 # Compiled Lua sources
 luac.out
+*.love
+*.swp
 
 # luarocks build files
 *.src.rock
