@@ -978,9 +978,6 @@ love.draw = function()
   love.graphics.draw(dashes, 0,0)
   draw_animation(player.animation, player.x, player.y, player.facing_right)
   love.graphics.draw(dust, 0, 0)
-  if player.face then
-    draw_animation(player.face.animation, player.x, player.y - 10, xor(player.facing_right, player.is_wallsliding))
-  end
   love.graphics.pop()
   if is_paused() then
     love.graphics.setFont(pause_font)
