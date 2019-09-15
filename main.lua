@@ -170,18 +170,18 @@ local FIXED_STEP = 1/60
 local WALLSLIDE_DUST_INTERVAL = 0.15
 local FALLOUT_TIME = 2
 local WIN_TIME = 1.5
-local PLAYER_SPEED = 200
-local GRAVITY = 1300
-local JUMP_SPEED = 250
+local PLAYER_SPEED = 130
+local GRAVITY = 350
+local JUMP_SPEED = 90
 local JUMP_TIME = 0.4
 local ON_GROUND_REACTION = 0.1
-local GROUND_FRICTION = 3
-local AIR_CONTROL = 0.2
-local ACCELERATION = 3
-local WALLSLIDE = 50
-local WALLSLIDE_SPEED = 1900
-local WALLJUMP = 150
-local WALLJUMP_ACCELERATION = 0.7
+local GROUND_FRICTION = 2
+local AIR_CONTROL = 0.9
+local ACCELERATION = 2
+local WALLSLIDE = 20
+local WALLSLIDE_SPEED = GRAVITY + 10
+local WALLJUMP = 80
+local WALLJUMP_ACCELERATION = 0.3
 local WALK_STEP_TIME = 0.13
 
 local DASH_TIMEOUT = 1
@@ -220,20 +220,9 @@ gids.NEXT_LEVEL = 10
 
 local BLACK      = {r=0,   g=0,   b=0  }
 local WHITE      = {r=255, g=255, b=255}
+local DEFAULT_BG = {r=255, g=255, b=181}
+local LIGHT_BG   = WHITE
 
-
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
---
---  ____  _        _
--- / ___|| |_ __ _| |_ ___  ___
--- \___ \| __/ _` | __/ _ \/ __|
---  ___) | || (_| | ||  __/\__ \
--- |____/ \__\__,_|\__\___||___/
---
--- States
-
-local state = {}
 
 
 --------------------------------------------------------------------------------
@@ -313,8 +302,12 @@ local draw_sprite = function(q, x, y, facing_right)
   love.graphics.draw(sprites, q, x + offset_x, y, 0, scale_x, 1)
 end
 
+local animation_index = 0
+
 local make_animation = function(frames, speed)
   local anim = {}
+  anim.id = animation_index
+  animation_index = animation_index + 1
   anim.sprites = {}
   for i, f in ipairs(frames) do
     anim.sprites[i] = make_sprite(f - 1)
@@ -362,11 +355,16 @@ end
 -- Animations
 local anim = {}
 -- animations are based on 1, sprites are based on 0
-anim.idle = make_animation({1, 2}, 0.45)
+anim.idle = make_animation({1, 2, 3, 2}, 0.45)
+anim.run = make_animation({4, 1, 5, 1}, 0.10)
+anim.jump = make_animation({4}, 0.45)
+anim.fall = make_animation({4}, 0.45)
+anim.halt = make_animation({5}, 0.45)
+anim.wall = make_animation({6}, 0.45)
 
 local dust = love.graphics.newParticleSystem(sprites)
 dust:setParticleLifetime(0.5, 1)
-dust:setQuads(make_sprite(21), make_sprite(22), make_sprite(23), make_sprite(24))
+dust:setQuads(make_sprite(7), make_sprite(8), make_sprite(9), make_sprite(10))
 dust:setOffset(0, 0)
 
 local dashes = love.graphics.newParticleSystem(sprites)
@@ -503,7 +501,7 @@ local load_level = function()
   player.vely = 0
   player.facing_right = true
   -- todo: setup player collision box
-  world.level_collision:add(player, player.x, player.y, 32, 32)
+  world.level_collision:add(player, player.x, player.y, 16, 30)
   world.level_gfx:bump_init(world.level_collision)
 
   -- reset data
@@ -543,6 +541,9 @@ local onkey = function(key, down)
   end
   if key == "2" and down then
     input.debug_print = not input.debug_print
+  end
+  if key == "3" and down then
+    load_level()
   end
   if key == "x" and down then
     add_trauma(0.3)
@@ -845,10 +846,10 @@ local player_update = function(dt)
   end
 
   -- determine player animation
-  local set_animation = function(o, an, anim_state)
-    if o.anim_state ~= anim_state then
+  local set_animation = function(o, an)
+    if o.anim_state ~= an.id then
       o.animation = an
-      o.anim_state = anim_state
+      o.anim_state = an.id
       reset_animation(o.animation)
     end
   end
@@ -858,28 +859,28 @@ local player_update = function(dt)
     if is_on_ground then
       if has_moved_hor then
         if halt then
-          set_animation(player, anim.halt, state.STATE_HALT)
+          set_animation(player, anim.halt)
         else
-          set_animation(player, anim.run, state.STATE_RUN)
+          set_animation(player, anim.run)
         end
       else
-        set_animation(player, anim.idle, state.STATE_IDLE)
+        set_animation(player, anim.idle)
       end
     else
       if player.is_wallsliding then
-        set_animation(player, anim.wall, state.STATE_WALL)
+        set_animation(player, anim.wall)
       else
         if player.vely < 0 then
-          set_animation(player, anim.jump, state.STATE_JUMP)
+          set_animation(player, anim.jump)
         else
-          set_animation(player, anim.fall, state.STATE_FALL)
+          set_animation(player, anim.fall)
         end
       end
     end
   elseif player.dash_state == DASH_HOLD then
-    set_animation(player, anim.dash_hold, state.STATE_DASH_HOLD)
+    set_animation(player, anim.dash_hold)
   else
-    set_animation(player, anim.dash, state.STATE_DASH)
+    set_animation(player, anim.dash)
   end
 end
 
@@ -941,7 +942,7 @@ love.draw = function()
     local max = 255
     love.graphics.setBackgroundColor(c.r/max, c.g/max, c.b/max)
   end
-  -- set_background(DEFAULT_BG)
+  set_background(DEFAULT_BG)
   set_color(WHITE)
   local zoom = 2
   local window_width, window_height = love.graphics.getWidth(), love.graphics.getHeight()
@@ -976,7 +977,7 @@ love.draw = function()
     world.level_gfx:drawLayer(detail_layer)
   end
   love.graphics.draw(dashes, 0,0)
-  draw_animation(player.animation, player.x, player.y, player.facing_right)
+  draw_animation(player.animation, player.x-8, player.y, player.facing_right)
   love.graphics.draw(dust, 0, 0)
   love.graphics.pop()
   if is_paused() then
