@@ -6,6 +6,7 @@ require "perlin"
 perlin:load()
 
 
+
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 --
@@ -168,6 +169,7 @@ end
 local FIXED_STEP = 1/60
 
 local WALLSLIDE_DUST_INTERVAL = 0.15
+local BUBBLES_INTERVAL = 2.50
 local FALLOUT_TIME = 2
 local WIN_TIME = 1.5
 local PLAYER_SPEED = 130
@@ -267,6 +269,7 @@ end
 
 local current_level = "level1.lua"
 local dust_wallslide_timer = 0
+local bubbles_timer = 0
 local fps = 0
 local jump_timer = 0
 local on_ground_timer = 0
@@ -364,8 +367,17 @@ anim.wall = make_animation({6}, 0.45)
 
 local dust = love.graphics.newParticleSystem(sprites)
 dust:setParticleLifetime(0.5, 1)
-dust:setQuads(make_sprite(7), make_sprite(8), make_sprite(9), make_sprite(10))
+dust:setQuads(make_sprite(6), make_sprite(7), make_sprite(8), make_sprite(9))
 dust:setOffset(0, 0)
+
+local bubbles = love.graphics.newParticleSystem(sprites)
+bubbles:setParticleLifetime(4, 9)
+bubbles:setQuads(make_sprite(12), make_sprite(11), make_sprite(10))
+bubbles:setOffset(0, 0)
+bubbles:setSpeed(3,13)
+bubbles:setDirection(-math.pi/2)
+bubbles:setAreaSpread('normal', 4, 4)
+bubbles:setColors(1,1,1,1,  1,1,1,1,  1,1,1,1,    1,1,1,0)
 
 local dashes = love.graphics.newParticleSystem(sprites)
 dashes:setParticleLifetime(2.5, 3)
@@ -393,6 +405,11 @@ local spawn_dust_at_feet = function()
   end
   dust:setPosition(player.x + dx, player.y)
   dust:emit(1)
+end
+
+local spawn_some_bubbles = function()
+  bubbles:setPosition(player.x - 6, player.y - 13)
+  bubbles:emit(3)
 end
 
 local dustwave = function(a, b)
@@ -638,6 +655,9 @@ local player_update = function(dt)
     player.dash_state = DASH_NONE
   end
 
+
+
+
   ----------- vertical movment:
   local ground_collision_objects
   local the_ground_collision_count
@@ -805,6 +825,16 @@ local player_update = function(dt)
     end
   else
     print("invalid dash state " .. str(player.dash_state))
+  end
+
+  --------- spawn some bubbles
+  bubbles_timer = bubbles_timer + dt
+  if has_moved_hor then
+    bubbles_timer = bubbles_timer + 6*dt
+  end
+  if bubbles_timer > BUBBLES_INTERVAL then
+    bubbles_timer = bubbles_timer - BUBBLES_INTERVAL
+    spawn_some_bubbles()
   end
 
   local halt = (input_movement > 0 and player.velx < 0) or (input_movement < 0 and player.velx > 0)
@@ -979,6 +1009,7 @@ love.draw = function()
   love.graphics.draw(dashes, 0,0)
   draw_animation(player.animation, player.x-8, player.y, player.facing_right)
   love.graphics.draw(dust, 0, 0)
+  love.graphics.draw(bubbles, 0, 0)
   love.graphics.pop()
   if is_paused() then
     love.graphics.setFont(pause_font)
@@ -1008,6 +1039,7 @@ love.update = function(dt)
   while dtsum > FIXED_STEP do
     dtsum = dtsum - FIXED_STEP
     dust:update(FIXED_STEP)
+    bubbles:update(FIXED_STEP)
     dashes:update(FIXED_STEP)
     if not is_paused() then
       if not player.is_alive or player.next_level then
