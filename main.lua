@@ -1,4 +1,5 @@
 local sti = require "sti"
+
 local bump = require "bump"
 local bump_debug = require "bump_debug"
 local lume = require "lume"
@@ -1169,15 +1170,17 @@ love.draw = function()
   love.graphics.pop()
   if is_paused() then
     love.graphics.setFont(pause_font)
-    set_color(WHITE)
+    set_color(BLACK)
     -- love.graphics.print("PAUSED", 100, 100)
     draw_centered_text("PAUSED")
   end
   if not player.is_alive then
+    set_color(BLACK)
     love.graphics.setFont(pause_font)
     draw_centered_text("game over")
   end
   if player.next_level then
+    set_color(BLACK)
     love.graphics.setFont(pause_font)
     draw_centered_text("good job")
   end
