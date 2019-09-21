@@ -169,6 +169,7 @@ end
 
 local FIXED_STEP = 1/60
 
+local OCT_SPEED = 40
 local WALLSLIDE_DUST_INTERVAL = 0.15
 local BUBBLES_INTERVAL = 2.50
 local FALLOUT_TIME = 2
@@ -544,6 +545,10 @@ local load_level = function()
     o.right = false
     reset_animation(o.anim, math.random())
     table.insert(octs, o)
+    o.timer = -1
+    o.active = true
+    o.px = 0
+    o.py = 0
   end
 
   -- reset data
@@ -628,6 +633,21 @@ local player_update = function(dt)
   for _, o in ipairs(octs) do
     if o.anim then
       step_animation(o.anim, dt)
+    end
+    if o.active then
+      o.timer = o.timer - dt
+      if o.timer < 0 then
+        o.timer = o.timer + 0.5 + math.random()*4
+        o.px = player.x
+        o.py = player.y
+      end
+      local tx = o.px - o.x
+      local ty = o.py - o.y
+      local l = math.sqrt(tx*tx + ty*ty)
+      if l > 0.001 then
+        o.x = o.x + (tx/l)*OCT_SPEED*dt
+        o.y = o.y + (ty/l)*OCT_SPEED*dt
+      end
     end
   end
 
