@@ -176,6 +176,8 @@ local BUBBLES_INTERVAL = 2.50
 local FALLOUT_TIME = 2
 local WIN_TIME = 1.5
 local PLAYER_SPEED = 130
+local SLASH_TIME = 0.2
+local SLASH_VEL = 0.5
 local GRAVITY = 350
 local JUMP_SPEED = 90
 local JUMP_TIME = 0.4
@@ -252,6 +254,7 @@ input.input_jump = false
 input.old_input_jump = false
 input.game_is_paused = false
 input.game_has_focus = false
+input.attack = false
 
 
 local is_paused = function()
@@ -276,6 +279,7 @@ local dust_wallslide_timer = 0
 local bubbles_timer = 0
 local fps = 0
 local jump_timer = 0
+local slash_timer = 0
 local on_ground_timer = 0
 local is_walljumping = false
 local camera = {x=0, y=0, trauma=0, time=0}
@@ -372,6 +376,7 @@ anim.jump = make_animation({4}, 0.45)
 anim.fall = make_animation({4}, 0.45)
 anim.halt = make_animation({5}, 0.45)
 anim.wall = make_animation({6}, 0.45)
+anim.slash = make_animation({17, 18}, 0.1)
 
 local dust = love.graphics.newParticleSystem(sprites)
 dust:setParticleLifetime(0.5, 1)
@@ -598,6 +603,9 @@ local onkey = function(key, down)
   if key == "x" and down then
     add_trauma(0.3)
   end
+  if key == "c" and down then
+    input.attack = true
+  end
 end
 
 local kill_player = function()
@@ -669,6 +677,26 @@ local player_update = function(dt)
     end
   end
 
+  if slash_timer > 0 then
+    slash_timer = slash_timer - dt
+  end
+
+  if input.attack then
+    slash_timer = SLASH_TIME
+    player.vely = 0
+  end
+  input.attack = false
+
+  if slash_timer > 0 then
+    step_animation(anim.slash, dt)
+    player.vely = 0
+    if player.facing_right then
+      player.velx = SLASH_VEL
+    else
+      player.velx = -SLASH_VEL
+    end
+  end
+
   if input.input_dash and not input.old_input_dash and on_ground_timer > 0.1 and not player.is_wallsliding then
     if player.vely < DASH_MIN_VELY then
       player.dash_state = DASH_HOLD
@@ -688,7 +716,9 @@ local player_update = function(dt)
   end
 
   if player.dash_state == DASH_NONE then
-    player.vely = player.vely + GRAVITY * dt
+    if slash_timer < 0 then
+      player.vely = player.vely + GRAVITY * dt
+    end
 
     if input.input_jump and jump_timer < JUMP_TIME then
       if not is_walljumping then
@@ -1081,6 +1111,17 @@ love.draw = function()
   draw_animation(player.animation, player.x-8, player.y, player.facing_right)
   love.graphics.draw(dust, 0, 0)
   love.graphics.draw(bubbles, 0, 0)
+  if slash_timer > 0 then
+    local dx = 0
+    local dy = 0
+    if player.facing_right then
+      dx = 8
+      dy = 0
+    else
+      dx = -25
+    end
+    draw_animation(anim.slash, player.x + dx, player.y + dy, player.facing_right)
+  end
   love.graphics.pop()
   if is_paused() then
     love.graphics.setFont(pause_font)
