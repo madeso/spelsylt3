@@ -8,7 +8,7 @@ return {
   height = 20,
   tilewidth = 32,
   tileheight = 32,
-  nextobjectid = 5,
+  nextobjectid = 8,
   properties = {},
   tilesets = {
     {
@@ -236,6 +236,48 @@ return {
           height = 32,
           rotation = 0,
           gid = 10,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 5,
+          name = "",
+          type = "",
+          shape = "rectangle",
+          x = 480,
+          y = 192,
+          width = 32,
+          height = 32,
+          rotation = 0,
+          gid = 16,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 6,
+          name = "",
+          type = "",
+          shape = "rectangle",
+          x = 480,
+          y = 256,
+          width = 32,
+          height = 32,
+          rotation = 0,
+          gid = 16,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 7,
+          name = "",
+          type = "",
+          shape = "rectangle",
+          x = 416,
+          y = 160,
+          width = 32,
+          height = 32,
+          rotation = 0,
+          gid = 16,
           visible = true,
           properties = {}
         }

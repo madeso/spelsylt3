@@ -5,7 +5,8 @@ local lume = require "lume"
 require "perlin"
 perlin:load()
 
-
+math.randomseed(os.time())
+math.random(); math.random(); math.random()
 
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -207,6 +208,7 @@ local CAMERA_TRAUMA_DECREASE = 0.7
 local gids = {}
 gids.PLAYER_SPAWN = 4
 gids.NEXT_LEVEL = 10
+gids.OCT = 16
 
 
 --------------------------------------------------------------------------------
@@ -333,9 +335,13 @@ local step_animation = function(anim, dt)
   end
 end
 
-local reset_animation = function(anim)
+local reset_animation = function(anim, t)
   anim.current_frame = 1
-  anim.time = 0
+  if t == nil then
+    anim.time = 0
+  else
+    anim.time = t
+  end
 end
 
 local draw_animation = function(anim, x, y, facing_right)
@@ -479,10 +485,14 @@ local draw_debug_text = function()
   text("Y: " .. niceval(player.y) .. " / " .. niceval(camera.y))
 end
 
+local octdefs = {}
+
 local load_spawn_positions = function()
   if not world.level_gfx then return end
 
   if not start_position then start_position = {x=0, y=0} end
+
+  octdefs = {}
 
   local spawn = world.level_gfx.layers["spawn"]
   if spawn then
@@ -492,6 +502,11 @@ local load_spawn_positions = function()
         start_position.y = o.y - 32
       elseif o.gid == gids.NEXT_LEVEL then
         print("got next level")
+      elseif o.gid == gids.OCT then
+        local oct = {}
+        oct.x = o.x
+        oct.y = o.y
+        table.insert(octdefs, oct)
       else
         print("Invalid gid: ", o.gid)
       end
@@ -505,6 +520,7 @@ load_spawn_positions()
 local load_level = function()
   print("loading level " .. current_level)
   if not player then player = {} end
+  octs = {}
   world.level_gfx = sti(current_level, {"bump"})
   world.level_collision = bump.newWorld(32 * 2)
   world.col = world.level_gfx.layers["col"]
@@ -520,6 +536,15 @@ local load_level = function()
   -- todo: setup player collision box
   world.level_collision:add(player, player.x, player.y, 16, 30)
   world.level_gfx:bump_init(world.level_collision)
+  for _, d in ipairs(octdefs) do
+    local o = {}
+    o.x = d.x
+    o.y = d.y
+    o.anim = make_animation({16, 14, 16, 15}, 0.3)
+    o.right = false
+    reset_animation(o.anim, math.random())
+    table.insert(octs, o)
+  end
 
   -- reset data
   camera.time = 0
@@ -600,6 +625,11 @@ local player_update = function(dt)
   if not player.animation then player.animation = anim.idle end
 
   step_animation(player.animation, dt)
+  for _, o in ipairs(octs) do
+    if o.anim then
+      step_animation(o.anim, dt)
+    end
+  end
 
   if input.input_dash and not input.old_input_dash and on_ground_timer > 0.1 and not player.is_wallsliding then
     if player.vely < DASH_MIN_VELY then
@@ -1007,6 +1037,9 @@ love.draw = function()
     world.level_gfx:drawLayer(detail_layer)
   end
   love.graphics.draw(dashes, 0,0)
+  for _, o in ipairs(octs) do
+    draw_animation(o.anim, o.x, o.y, o.right)
+  end
   draw_animation(player.animation, player.x-8, player.y, player.facing_right)
   love.graphics.draw(dust, 0, 0)
   love.graphics.draw(bubbles, 0, 0)
