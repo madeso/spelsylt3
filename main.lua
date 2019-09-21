@@ -169,7 +169,8 @@ end
 
 local FIXED_STEP = 1/60
 
-local OCT_SPEED = 40
+local OCT_SPEED = 60
+local OCT_ANGRY = 20
 local WALLSLIDE_DUST_INTERVAL = 0.15
 local BUBBLES_INTERVAL = 2.50
 local FALLOUT_TIME = 2
@@ -547,6 +548,8 @@ local load_level = function()
     table.insert(octs, o)
     o.timer = -1
     o.active = true
+    o.angry = false
+    o.atimer = math.random() * OCT_ANGRY
     o.px = 0
     o.py = 0
   end
@@ -636,6 +639,16 @@ local player_update = function(dt)
     end
     if o.active then
       o.timer = o.timer - dt
+      o.atimer = o.atimer - dt
+      if o.atimer < 0 then
+        o.angry = not o.angry
+        if o.angry then
+          print("oct got angry")
+          o.atimer = math.random()*10
+        else
+          o.atimer = math.random()*OCT_ANGRY
+        end
+      end
       if o.timer < 0 then
         o.timer = o.timer + 0.5 + math.random()*4
         o.px = player.x
@@ -644,9 +657,14 @@ local player_update = function(dt)
       local tx = o.px - o.x
       local ty = o.py - o.y
       local l = math.sqrt(tx*tx + ty*ty)
-      if l > 0.001 then
-        o.x = o.x + (tx/l)*OCT_SPEED*dt
-        o.y = o.y + (ty/l)*OCT_SPEED*dt
+      if l > 8 then
+        local os = 1
+        if o.angry then
+          os = 3
+        end
+        o.x = o.x + (tx/l)*OCT_SPEED*dt*os
+        o.y = o.y + (ty/l)*OCT_SPEED*dt*os
+        o.right = tx > 0
       end
     end
   end
