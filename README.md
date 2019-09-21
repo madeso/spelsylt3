@@ -14,6 +14,6 @@ tuesday: nothing
 wednesday: nothing
 thursday: nothing
 friday: 3h tileset making and bubbles particle animation
-saturday: 
+saturday: 5h enemis, slashing enemies, with kickback, better level
 sunday: jam over
 
