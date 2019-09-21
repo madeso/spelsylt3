@@ -122,8 +122,9 @@ local load_sfx = function()
   sounds.change_dir = sfx("changedir")
   sounds.jump = sfx("jump")
   sounds.land = sfx("land")
-  sounds.hardland = sfx("crash")
-  sounds.hurt = sfx("hurt")
+  sounds.octdie = sfx("crash")
+  sounds.octhurt = sfx("hurt")
+  sounds.slash = sfx("jump")
   sounds.semihurt = sfx("semihurt")
   sounds.walljump = sfx("walljump")
 
@@ -169,6 +170,9 @@ end
 
 local FIXED_STEP = 1/60
 
+local OCT_DAMAGE_MOVE = 80
+local OCT_DETECT_X = 250
+local OCT_DETECT_Y = 250
 local OCT_SPEED = 60
 local OCT_ANGRY = 20
 local WALLSLIDE_DUST_INTERVAL = 0.15
@@ -279,7 +283,8 @@ local dust_wallslide_timer = 0
 local bubbles_timer = 0
 local fps = 0
 local jump_timer = 0
-local slash_timer = 0
+local slash_timer = -2
+local hit_slash = false
 local on_ground_timer = 0
 local is_walljumping = false
 local camera = {x=0, y=0, trauma=0, time=0}
@@ -552,11 +557,15 @@ local load_level = function()
     reset_animation(o.anim, math.random())
     table.insert(octs, o)
     o.timer = -1
-    o.active = true
+    o.active = false
     o.angry = false
     o.atimer = math.random() * OCT_ANGRY
     o.px = 0
     o.py = 0
+    o.hurt = -1
+    o.rightkick = true
+    o.health = 3
+    o.alive = true
   end
 
   -- reset data
@@ -605,6 +614,7 @@ local onkey = function(key, down)
   end
   if key == "c" and down then
     input.attack = true
+    playsfx(sfx.slash)
   end
 end
 
@@ -612,6 +622,12 @@ local kill_player = function()
   player.is_alive = false
   player.reset_timer = FALLOUT_TIME
   playsfx(sfx.fallout)
+end
+
+local within_range = function(x, y, ox, oy, rx, ry)
+  local within_x = x > ox - rx/2 and x < ox + rx/2
+  local within_y = y > oy - ry/2 and y < oy + ry/2
+  return within_x and within_y
 end
 
 local player_update = function(dt)
@@ -645,56 +661,92 @@ local player_update = function(dt)
     if o.anim then
       step_animation(o.anim, dt)
     end
-    if o.active then
-      o.timer = o.timer - dt
-      o.atimer = o.atimer - dt
-      if o.atimer < 0 then
-        o.angry = not o.angry
-        if o.angry then
-          print("oct got angry")
-          o.atimer = math.random()*10
+    if not o.active then
+      if within_range(player.x, player.y, o.x, o.y, OCT_DETECT_X, OCT_DETECT_Y) then
+        o.active = true
+      end
+    end
+    if o.active and o.health > 0 then
+      if slash_timer > 0 then
+        local dx = 0
+        if player.facing_right then
+          dx = 8
+          dy = 0
         else
-          o.atimer = math.random()*OCT_ANGRY
+          dx = -25
+        end
+        if within_range(player.x + dx, player.y, o.x, o.y, 16,16) then
+          hit_slash = true
+          player.vely = 0
+          if o.hurt < 0 then
+            o.hurt = 0.4
+            o.health = o.health - 1
+            o.rightkick = player.facing_right
+            if o.health <= 0 then
+              playsfx(sfx.octdie)
+            else
+              playsfx(sfx.octhurt)
+            end
+          end
         end
       end
-      if o.timer < 0 then
-        o.timer = o.timer + 0.5 + math.random()*4
-        o.px = player.x
-        o.py = player.y
-      end
-      local tx = o.px - o.x
-      local ty = o.py - o.y
-      local l = math.sqrt(tx*tx + ty*ty)
-      if l > 8 then
-        local os = 1
-        if o.angry then
-          os = 3
+      if o.hurt > 0 then
+        o.hurt = o.hurt - dt
+        local dx = -OCT_DAMAGE_MOVE
+        if o.rightkick then
+          dx = -dx
         end
-        o.x = o.x + (tx/l)*OCT_SPEED*dt*os
-        o.y = o.y + (ty/l)*OCT_SPEED*dt*os
-        o.right = tx > 0
+        o.x = o.x + dx * dt
+      else
+        o.timer = o.timer - dt
+        o.atimer = o.atimer - dt
+        if o.atimer < 0 then
+          o.angry = not o.angry
+          if o.angry then
+            o.atimer = math.random()*10
+          else
+            o.atimer = math.random()*OCT_ANGRY
+          end
+        end
+        if o.timer < 0 then
+          o.timer = o.timer + 0.5 + math.random()*4
+          o.px = player.x
+          o.py = player.y
+        end
+        local tx = o.px - o.x
+        local ty = o.py - o.y
+        local l = math.sqrt(tx*tx + ty*ty)
+        if l > 8 then
+          local os = 1
+          if o.angry then
+            os = 3
+          end
+          o.x = o.x + (tx/l)*OCT_SPEED*dt*os
+          o.y = o.y + (ty/l)*OCT_SPEED*dt*os
+          o.right = tx > 0
+        end
       end
     end
   end
 
-  if slash_timer > 0 then
+  if slash_timer >= 0 then
     slash_timer = slash_timer - dt
   end
 
   if input.attack then
     slash_timer = SLASH_TIME
-    player.vely = 0
   end
   input.attack = false
 
   if slash_timer > 0 then
     step_animation(anim.slash, dt)
-    player.vely = 0
     if player.facing_right then
       player.velx = SLASH_VEL
     else
       player.velx = -SLASH_VEL
     end
+  else
+    hit_slash = false
   end
 
   if input.input_dash and not input.old_input_dash and on_ground_timer > 0.1 and not player.is_wallsliding then
@@ -716,7 +768,9 @@ local player_update = function(dt)
   end
 
   if player.dash_state == DASH_NONE then
-    if slash_timer < 0 then
+    if slash_timer > 0 and hit_slash then
+      -- nop
+    else
       player.vely = player.vely + GRAVITY * dt
     end
 
@@ -767,19 +821,7 @@ local player_update = function(dt)
     if player.vely > 100 then
       print("landed: " .. str(player.vely))
       add_dust_floor()
-
-      if player.vely > 900 then
-        add_trauma(1.0)
-        playsfx(sfx.hurt)
-      elseif player.vely > 700 then
-        add_trauma(0.5)
-        playsfx(sfx.semihurt)
-      elseif player.vely > 400 then
-        add_trauma(0.3)
-        playsfx(sfx.hardland)
-      else
-        playsfx(sfx.land)
-      end
+      playsfx(sfx.land)
     end
     on_ground_timer = 0
     is_walljumping = false
@@ -1106,7 +1148,9 @@ love.draw = function()
   end
   love.graphics.draw(dashes, 0,0)
   for _, o in ipairs(octs) do
-    draw_animation(o.anim, o.x, o.y, o.right)
+    if o.health > 0 then
+      draw_animation(o.anim, o.x, o.y, o.right)
+    end
   end
   draw_animation(player.animation, player.x-8, player.y, player.facing_right)
   love.graphics.draw(dust, 0, 0)
