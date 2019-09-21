@@ -124,7 +124,7 @@ local load_sfx = function()
   sounds.land = sfx("land")
   sounds.octdie = sfx("crash")
   sounds.octhurt = sfx("hurt")
-  sounds.slash = sfx("jump")
+  sounds.slash = sfx("slash")
   sounds.semihurt = sfx("semihurt")
   sounds.walljump = sfx("walljump")
 
